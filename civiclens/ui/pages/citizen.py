@@ -3,14 +3,11 @@ import streamlit as st
 from pydantic import ValidationError
 
 from ...core.config import Settings
-from ...core.constants import AREAS
 from ...core.errors import ServiceError, validation_message
 from ...core.schemas import ComplaintCreate, ComplaintOut, UserOut
 from ...core.services import complaints
-from .. import components, session
+from .. import components, location, session
 from ..format import md_escape
-
-_FIRST_LAT, _FIRST_LON = next(iter(AREAS.values()))
 
 
 def render(user: UserOut, settings: Settings) -> None:
@@ -25,6 +22,8 @@ def render(user: UserOut, settings: Settings) -> None:
 
 def _form(user: UserOut) -> None:
     st.subheader("New complaint")
+    place = location.pick_location()  # outside the form so the location button updates the page immediately
+
     with st.form(f"new_complaint_{session.form_nonce()}"):
         description = st.text_area(
             "What is the problem?",
@@ -32,20 +31,18 @@ def _form(user: UserOut) -> None:
             height=140,
             max_chars=2000,
         )
-        area = st.selectbox("Area", list(AREAS))
-        exact = st.checkbox("Use exact coordinates instead of the area")
-        lat_col, lon_col = st.columns(2)
-        lat = lat_col.number_input("Latitude", value=_FIRST_LAT, format="%.6f", min_value=-90.0, max_value=90.0)
-        lon = lon_col.number_input("Longitude", value=_FIRST_LON, format="%.6f", min_value=-180.0, max_value=180.0)
         submitted = st.form_submit_button("Send complaint", type="primary")
         st.caption("For an emergency, call your local emergency number instead of using this form.")
 
     if not submitted:
         return
-    latitude, longitude = (lat, lon) if exact else AREAS[area]
+    if place is None:
+        st.error("Set the location first: press the location button, or choose an area.")
+        return
     try:
         created = complaints.submit(
-            user, ComplaintCreate(description=description, area=area, latitude=latitude, longitude=longitude)
+            user,
+            ComplaintCreate(description=description, area=place.area, latitude=place.latitude, longitude=place.longitude),
         )
     except ValidationError as exc:
         st.error(validation_message(exc))

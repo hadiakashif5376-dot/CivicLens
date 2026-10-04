@@ -89,6 +89,10 @@ def _workspace(user: UserOut, c: ComplaintOut, settings: Settings) -> None:
     with st.container(border=True):
         st.markdown(f"### {c.ref} · {components.status_tag(c.status)}")
         st.caption(f"{md_escape(c.area)} · reported by {md_escape(c.reporter_name)} · {fmt_time(c.created_at, settings.display_tz)}")
+        st.link_button(
+            "Open location in maps",
+            f"https://www.openstreetmap.org/?mlat={c.latitude}&mlon={c.longitude}#map=18/{c.latitude}/{c.longitude}",
+        )
         st.markdown(md_escape(c.description))
         components.understood(c)
         with st.expander("Timeline"):

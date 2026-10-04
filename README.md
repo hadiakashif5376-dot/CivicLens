@@ -13,12 +13,12 @@ Two roles, one screen each:
 streamlit_app.py            entry point (set this as the main file on Streamlit Cloud)
 civiclens/
   core/                     all the logic. Never imports Streamlit.
-    constants.py rules.py workflow.py security.py config.py errors.py
+    constants.py rules.py workflow.py security.py config.py errors.py geo.py
     db.py models.py schemas.py seed.py
     services/auth.py        register, sign in
     services/complaints.py  submit, queue, assign, move status
   ui/                       Streamlit only. Calls services, never the database.
-    bootstrap.py session.py components.py format.py
+    bootstrap.py session.py components.py format.py location.py
     pages/login.py citizen.py officer.py
 tests/
 .streamlit/
@@ -62,7 +62,8 @@ Tables are created on the first start. Without `DATABASE_URL` the app falls back
 
 - Signing in does not survive a browser refresh.
 - No password reset and no rate limiting on sign-in.
-- Locations come from a demo list of areas (`core/constants.py`) or typed coordinates. Replace with your city's list or a geocoder.
+- Locations come from a demo list of areas (`core/constants.py`), the browser's location (the citizen must allow it), or typed coordinates. Replace the demo list with your city's list or a geocoder.
+- The location button uses the `streamlit-geolocation` package, whose last release was in 2023. If it ever breaks, the other two ways of setting a location still work.
 - Tables are created with `create_all`. Add Alembic migrations before changing the schema on real data.
 - Free hosted databases and apps can pause after a period of inactivity.
 
