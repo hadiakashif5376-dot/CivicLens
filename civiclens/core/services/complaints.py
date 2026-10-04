@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session, selectinload
 from .. import db
 from ..constants import DEPARTMENT_BY_CATEGORY, STATUSES
 from ..errors import ConflictError, NotFoundError, PermissionDenied, ServiceError
-from ..models import Complaint, Department, StatusEvent, utcnow
+from ..models import AIAnalysis, Complaint, Department, StatusEvent, utcnow
 from ..rules import suggest_category, suggest_urgency
 from ..schemas import AssignIn, ComplaintCreate, ComplaintOut, DepartmentOut, EventOut, StatusIn, UserOut
 from ..workflow import can_assign, can_move, make_ref
+from .triage import Triage
 
 
 def _require(actor: UserOut, role: str) -> None:
@@ -23,6 +24,7 @@ def _require(actor: UserOut, role: str) -> None:
 
 
 def _view(c: Complaint) -> ComplaintOut:
+    a = c.analysis
     return ComplaintOut(
         ref=c.ref,
         description=c.description,
@@ -36,6 +38,9 @@ def _view(c: Complaint) -> ComplaintOut:
         urgency=c.urgency,
         department=c.department.name if c.department else None,
         reporter_name=c.reporter.full_name if c.reporter else None,
+        ai_summary=a.summary if a else None,
+        ai_source=a.source if a else None,
+        ai_note=a.note if a else None,
         created_at=c.created_at,
         events=[EventOut.model_validate(e) for e in c.events],
     )
@@ -59,8 +64,11 @@ def list_departments() -> list[DepartmentOut]:
 
 # ---------- citizen ----------
 
-def submit(actor: UserOut, data: ComplaintCreate) -> ComplaintOut:
+def submit(actor: UserOut, data: ComplaintCreate, triage: Optional[Triage] = None) -> ComplaintOut:
+    """Save a complaint. `triage` comes from services.triage.suggest; without it the keyword rules are used."""
     _require(actor, "citizen")
+    if triage is None:
+        triage = Triage(suggest_category(data.description), suggest_urgency(data.description), None, "rules")
     with db.session_scope() as s:
         c = Complaint(
             reporter_id=actor.id,
@@ -69,8 +77,9 @@ def submit(actor: UserOut, data: ComplaintCreate) -> ComplaintOut:
             latitude=data.latitude,
             longitude=data.longitude,
             status="Submitted",
-            suggested_category=suggest_category(data.description),
-            suggested_urgency=suggest_urgency(data.description),
+            suggested_category=triage.category,
+            suggested_urgency=triage.urgency,
+            analysis=AIAnalysis(source=triage.source, model=triage.model, summary=triage.summary, note=triage.note),
         )
         s.add(c)
         s.flush()  # gives the row its id
@@ -86,7 +95,12 @@ def list_mine(actor: UserOut) -> list[ComplaintOut]:
         rows = s.scalars(
             select(Complaint)
             .where(Complaint.reporter_id == actor.id)
-            .options(selectinload(Complaint.events), selectinload(Complaint.department), selectinload(Complaint.reporter))
+            .options(
+                selectinload(Complaint.events),
+                selectinload(Complaint.department),
+                selectinload(Complaint.reporter),
+                selectinload(Complaint.analysis),
+            )
             .order_by(Complaint.id.desc())
         )
         return [_view(c) for c in rows]
@@ -117,7 +131,12 @@ def queue(actor: UserOut, status: Optional[str] = None, limit: int = 200, offset
     urgency_rank = case((urgency == "High", 0), (urgency == "Medium", 1), else_=2)
     stmt = (
         select(Complaint)
-        .options(selectinload(Complaint.events), selectinload(Complaint.department), selectinload(Complaint.reporter))
+        .options(
+                selectinload(Complaint.events),
+                selectinload(Complaint.department),
+                selectinload(Complaint.reporter),
+                selectinload(Complaint.analysis),
+            )
         .order_by(status_rank, urgency_rank, Complaint.id)
         .limit(limit)
         .offset(offset)

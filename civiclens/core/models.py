@@ -58,6 +58,7 @@ class Complaint(Base):
     events: Mapped[list["StatusEvent"]] = relationship(
         back_populates="complaint", order_by="StatusEvent.id", cascade="all, delete-orphan"
     )
+    analysis: Mapped[Optional["AIAnalysis"]] = relationship(cascade="all, delete-orphan")
 
 
 class StatusEvent(Base):
@@ -73,3 +74,17 @@ class StatusEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     complaint: Mapped[Complaint] = relationship(back_populates="events")
+
+
+class AIAnalysis(Base):
+    """How the suggestion for a complaint was made: by the AI or by keyword rules, and the AI's summary."""
+
+    __tablename__ = "ai_analyses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    complaint_id: Mapped[int] = mapped_column(ForeignKey("complaints.id"), unique=True)
+    source: Mapped[str] = mapped_column(String(10))  # "ai" or "rules"
+    model: Mapped[Optional[str]] = mapped_column(String(80))
+    summary: Mapped[Optional[str]] = mapped_column(Text)
+    note: Mapped[Optional[str]] = mapped_column(String(200))  # why the AI was not used, if it failed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -101,3 +101,18 @@ def test_status_cannot_skip_steps(citizen, officer):
     c = complaints.submit(citizen, DRAIN)
     with pytest.raises(ConflictError):
         complaints.move_status(officer, c.ref, StatusIn(status="Resolved"))
+
+
+def test_submit_stores_the_ai_triage_and_shows_it_to_the_officer(citizen, officer):
+    from civiclens.core.services.triage import Triage
+
+    ai = Triage("Roads", "Medium", "A deep pothole on the main road.", "ai", model="m")
+    created = complaints.submit(citizen, DRAIN, ai)
+    assert created.suggested_category == "Roads" and created.suggested_urgency == "Medium"
+    queued = complaints.queue(officer)[0]
+    assert (queued.ai_source, queued.ai_summary) == ("ai", "A deep pothole on the main road.")
+
+
+def test_submit_without_triage_records_the_rules(citizen):
+    created = complaints.submit(citizen, DRAIN)
+    assert created.ai_source == "rules" and created.ai_summary is None

@@ -96,6 +96,7 @@ def _workspace(user: UserOut, c: ComplaintOut, settings: Settings) -> None:
         components.point_map(c.latitude, c.longitude)
         st.markdown(md_escape(c.description))
         components.understood(c)
+        _ai_note(c)
         with st.expander("Timeline"):
             components.timeline(c, settings.display_tz)
 
@@ -108,12 +109,21 @@ def _workspace(user: UserOut, c: ComplaintOut, settings: Settings) -> None:
             st.write("This complaint is resolved.")
 
 
+def _ai_note(c: ComplaintOut) -> None:
+    """For officers only: what the AI understood, or why it was not used."""
+    if c.ai_summary:
+        st.markdown(f"**AI summary** {md_escape(c.ai_summary)}")
+    elif c.ai_note:
+        st.caption(f"AI was not used for this complaint: {md_escape(c.ai_note)} Keyword rules were used instead.")
+
+
 def _assign_form(user: UserOut, c: ComplaintOut) -> None:
     departments = complaints.list_departments()
     team_ids = {d.name: d.id for d in departments}
     category = c.suggested_category if c.suggested_category in CATEGORIES else "Other"
     urgency = c.suggested_urgency if c.suggested_urgency in URGENCIES else "Low"
-    st.caption("Category and urgency are suggested by keyword rules. Change them if they look wrong.")
+    how = "the AI" if c.ai_source == "ai" else "keyword rules"
+    st.caption(f"Category and urgency are suggested by {how}. Change them if they look wrong.")
     with st.form(f"assign_{c.ref}"):
         col1, col2, col3 = st.columns(3)
         new_category = col1.selectbox("Category", CATEGORIES, index=CATEGORIES.index(category))

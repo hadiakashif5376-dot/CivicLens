@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from ...core.config import Settings
 from ...core.errors import ServiceError, validation_message
 from ...core.schemas import ComplaintCreate, ComplaintOut, UserOut
-from ...core.services import complaints
+from ...core.services import complaints, triage
 from .. import components, location, session
 from ..format import md_escape
 
@@ -15,12 +15,12 @@ def render(user: UserOut, settings: Settings) -> None:
     session.show_flash()
     left, right = st.columns([1, 1.15], gap="large")
     with left:
-        _form(user)
+        _form(user, settings)
     with right:
         _my_complaints(user, settings)
 
 
-def _form(user: UserOut) -> None:
+def _form(user: UserOut, settings: Settings) -> None:
     st.subheader("New complaint")
     place = location.pick_location()  # outside the form so the location button updates the page immediately
 
@@ -40,10 +40,10 @@ def _form(user: UserOut) -> None:
         st.error("Set the location first: press the location button, or choose an area.")
         return
     try:
-        created = complaints.submit(
-            user,
-            ComplaintCreate(description=description, area=place.area, latitude=place.latitude, longitude=place.longitude),
-        )
+        data = ComplaintCreate(description=description, area=place.area, latitude=place.latitude, longitude=place.longitude)
+        with st.spinner("Reading your complaint..."):
+            suggestion = triage.suggest(data.description, settings.groq_api_key, settings.groq_model)
+        created = complaints.submit(user, data, suggestion)
     except ValidationError as exc:
         st.error(validation_message(exc))
     except ServiceError as exc:

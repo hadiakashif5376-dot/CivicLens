@@ -77,5 +77,8 @@ class ComplaintOut(BaseModel):
     urgency: Optional[str]
     department: Optional[str]
     reporter_name: Optional[str]
+    ai_summary: Optional[str] = None
+    ai_source: Optional[str] = None  # "ai" or "rules"
+    ai_note: Optional[str] = None
     created_at: datetime
     events: list[EventOut] = []

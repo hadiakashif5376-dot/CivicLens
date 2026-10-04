@@ -54,9 +54,20 @@ DATABASE_URL = "postgresql://postgres.PROJECTREF:PASSWORD@aws-0-REGION.pooler.su
 OFFICER_EMAIL = "you@example.com"
 OFFICER_PASSWORD = "a-strong-password"
 DISPLAY_TZ = "Asia/Karachi"
+GROQ_API_KEY = "your-groq-key"      # optional, see "AI classification" below
 ```
 
 Tables are created on the first start. Without `DATABASE_URL` the app falls back to SQLite and shows a "demo storage" warning.
+
+## AI classification (Groq)
+
+When `GROQ_API_KEY` is set, each new complaint is read by a Groq model, which suggests the category, urgency and a one-line summary (`core/ai.py`, `core/services/triage.py`). The officer sees the summary and still confirms or changes the category, urgency and team.
+
+- Without a key, the keyword rules in `core/rules.py` are used. If the call fails or returns something invalid, the rules are used too and the officer screen shows the reason.
+- The AI can raise the urgency above the keyword result but never lower it, so a model that underrates a hazard cannot hide it.
+- Complaint text is sent to Groq. Say so in your privacy notice before real use.
+- `GROQ_MODEL` is optional. The default is `openai/gpt-oss-120b`. `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` are alternatives. Check Groq's model list if a model name stops working.
+- A new table, `ai_analyses`, is created automatically on the next start. Existing tables are not changed, and older complaints simply have no AI summary.
 
 ## Known limits
 
@@ -70,7 +81,7 @@ Tables are created on the first start. Without `DATABASE_URL` the app falls back
 
 ## Next steps
 
-1. **Photos and AI classification.** Add `st.file_uploader` and an `attachments` table, then a `core/services/analysis.py` that sends text and photo to an LLM and returns structured JSON. Keep `rules.py` as the fallback if the call fails. Put the API key in secrets.
+1. **Photos.** Add `st.file_uploader` and an `attachments` table, then extend `core/ai.py` to send the photo to a Groq vision model alongside the text. Keep `rules.py` as the fallback.
 2. **Voice.** Add `st.audio_input` and a transcription call ahead of the analysis step.
 3. **Duplicates and hotspots.** Enable pgvector and PostGIS on Supabase, store an embedding per complaint, and query by similarity within a distance.
 4. **Dashboard.** Hotspot rings and a generated summary on the officer screen.

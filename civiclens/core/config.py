@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping
 
 
@@ -8,11 +8,17 @@ class Settings:
     officer_email: str = ""
     officer_password: str = ""
     display_tz: str = "Asia/Karachi"
+    groq_api_key: str = field(default="", repr=False)  # repr=False keeps it out of logs
+    groq_model: str = "openai/gpt-oss-120b"
 
     @property
     def is_demo_storage(self) -> bool:
         """SQLite on Streamlit Community Cloud is wiped whenever the app restarts."""
         return self.database_url.startswith("sqlite")
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.groq_api_key)
 
 
 def _text(values: Mapping, key: str, default: str) -> str:
@@ -28,4 +34,6 @@ def from_mapping(values: Mapping) -> Settings:
         officer_email=_text(values, "OFFICER_EMAIL", "").lower(),
         officer_password=_text(values, "OFFICER_PASSWORD", ""),
         display_tz=_text(values, "DISPLAY_TZ", defaults.display_tz),
+        groq_api_key=_text(values, "GROQ_API_KEY", ""),
+        groq_model=_text(values, "GROQ_MODEL", defaults.groq_model),
     )
