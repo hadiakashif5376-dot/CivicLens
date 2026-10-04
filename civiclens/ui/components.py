@@ -1,4 +1,5 @@
 """Small display pieces shared by the citizen and officer screens."""
+import pandas as pd
 import streamlit as st
 
 from ..core.schemas import ComplaintOut
@@ -45,3 +46,12 @@ def understood(c: ComplaintOut) -> None:
 def timeline(c: ComplaintOut, tz_name: str) -> None:
     for event in c.events:
         st.markdown(f"`{fmt_time(event.created_at, tz_name)}`  {md_escape(event.note)}")
+
+
+def point_map(lat: float, lon: float, zoom: int = 15) -> None:
+    """A small map with one pin, zoomed in far enough for street and area names to show."""
+    frame = pd.DataFrame({"latitude": [lat], "longitude": [lon]})
+    try:
+        st.map(frame, size=30, zoom=zoom)
+    except TypeError:  # an older Streamlit without the zoom option
+        st.map(frame, size=30)

@@ -93,6 +93,7 @@ def _workspace(user: UserOut, c: ComplaintOut, settings: Settings) -> None:
             "Open location in maps",
             f"https://www.openstreetmap.org/?mlat={c.latitude}&mlon={c.longitude}#map=18/{c.latitude}/{c.longitude}",
         )
+        components.point_map(c.latitude, c.longitude)
         st.markdown(md_escape(c.description))
         components.understood(c)
         with st.expander("Timeline"):
