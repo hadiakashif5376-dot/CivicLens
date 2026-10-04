@@ -52,10 +52,8 @@ def _need_engine():
 
 
 def create_tables() -> None:
-# Import models to register all tables with Base.metadata
-from . import models
-
-Base.metadata.create_all(_need_engine())
+    # Fine for step 1. Add Alembic migrations before you change the schema on real data.
+    Base.metadata.create_all(_need_engine())
 
 
 def drop_tables() -> None:
